@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Add `-windows` to suppress warning CA1416. -->
+    <TargetFramework>net7.0-windows10.0.22000.0</TargetFramework>
+    <!-- https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/desktop-to-uwp-enhance -->
+    <TargetPlatformMinVersion>10.0.10240.0</TargetPlatformMinVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- https://learn.microsoft.com/en-us/dotnet/core/project-sdk/overview#default-includes-and-excludes -->
+    <!-- https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#default-item-inclusion-properties -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);notes/**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>
