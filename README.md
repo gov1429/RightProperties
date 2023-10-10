@@ -1,6 +1,6 @@
 # RightProperties
 
-`RightProperties` is a sample console app written in .NET, which produces properties of files on **Windows** in JSON format.
+`RightProperties` is a sample .NET console app which produces properties of files on **Windows** in JSON format.
 
 ![demo](./docs/demo.png)
 
