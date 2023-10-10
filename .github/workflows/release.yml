@@ -1,0 +1,59 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: .NET
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 7.0.x
+    - name: Publish
+      id: publish
+      run: |
+        dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:DebugType=embedded --output .\bin\self-contained
+        dotnet publish -c Release -r win-x64 --no-self-contained -p:PublishSingleFile=true -p:DebugType=embedded --output .\bin\no-self-contained
+        $RUNTIME_ZIP_OUTPUT="./bin/self-contained/${{ github.event.repository.name }}-runtime.zip"
+        $ZIP_OUTPUT="./bin/no-self-contained/${{ github.event.repository.name }}.zip"
+        Compress-Archive -Path .\bin\self-contained\*.exe -Destination $RUNTIME_ZIP_OUTPUT
+        Compress-Archive -Path .\bin\no-self-contained\*.exe -Destination $ZIP_OUTPUT
+        echo "RUNTIME_ZIP_OUTPUT=$RUNTIME_ZIP_OUTPUT" >> $env:GITHUB_OUTPUT
+        echo "ZIP_OUTPUT=$ZIP_OUTPUT" >> $env:GITHUB_OUTPUT
+    - name: Install Versionize
+      run: dotnet tool install --global Versionize
+    - name: Setup Git
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+    - name: Versioning
+      id: versionize
+      run: |
+        versionize --changelog-all
+        echo "VERSIONIZE_TAG=$(git describe --tags --abbrev=0)" >> $env:GITHUB_OUTPUT
+    - name: No Release Required
+      if: steps.versionize.outcome != 'success'
+      run: echo "Skipping Release. No release required."
+    - name: Push Changes to GitHub
+      if: steps.versionize.outcome == 'success'
+      uses: ad-m/github-push-action@master
+      with:
+        branch: ${{ github.ref }}
+        tags: true
+    - name: Create Release
+      if: steps.versionize.outcome == 'success'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.versionize.outputs.VERSIONIZE_TAG }}
+        generate_release_notes: true
+        files: |
+          ${{ steps.publish.outputs.RUNTIME_ZIP_OUTPUT }}
+          ${{ steps.publish.outputs.ZIP_OUTPUT }}
