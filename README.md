@@ -242,4 +242,4 @@ If `ffprobe` is able to fetch metadata from video container, `RightProperties` w
 >>- A lower `probe_score` suggests that `ffprobe` may be less certain about the detected format or codec.
 >>- A `probe_score` of 100 is often used when `ffprobe` is very confident about the detected format or codec.
 >>
-> \- From ChatGOT
+> \- From ChatGPT
