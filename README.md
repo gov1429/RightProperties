@@ -189,15 +189,15 @@ If the properties are fetched by `ffprobe`, the prefix of name will be `FFProbe`
 ```jsonc
 {
     // ...
-    "FFProbe.Media.Duration": "176.509667", // second.
+    "FFProbe.Media.Duration": "176.509667", // Second.
     "FFProbe.Video.FrameWidth": 608,
     "FFProbe.Video.FrameHeight": 1080,
-    "FFProbe.Video.EncodingBitrate": "1360709", // bit per second.
-    "FFProbe.Video.TotalBitrate": "1491134", // bit per second.
+    "FFProbe.Video.EncodingBitrate": "1360709", // Bit per second.
+    "FFProbe.Video.TotalBitrate": "1491134", // Bit per second.
     "FFProbe.Video.FrameRate": "24000/1001",
-    "FFProbe.Audio.EncodingBitrate": "128042", // bit per second.
+    "FFProbe.Audio.EncodingBitrate": "128042", // Bit per second.
     "FFProbe.Audio.ChannelCount": 2,
-    "FFProbe.Audio.SampleRate": "48000" // hertz.
+    "FFProbe.Audio.SampleRate": "48000" // Hertz.
     // ...
 }
 ```
@@ -208,10 +208,22 @@ If the properties are fetched by `ffprobe`, the prefix of name will be `FFProbe`
 
 `RightProperties` calculates bitrate of video or audio streams ***approximately*** when `ffprobe` is unable to fetch bitrate set by encoders. The name of calculated properties are `FFProbe.Video.EncodingBitrate.Calculated` and `FFProbe.Audio.EncodingBitrate.Calculated`.
 
-```jsonc
+```json
 {
     "FFProbe.Video.EncodingBitrate.Calculated": "1360709",
     "FFProbe.Audio.EncodingBitrate.Calculated": "128073"
+}
+```
+
+### Calculation of Frame Rate
+
+`RightProperties` calculates frame rate of video stream ***approximately*** when the fetched result of `ffprobe` is `"0/0"`. The name of calculated property is `FFProbe.Video.FrameRate.Calculated`.\
+(*Note that `FFProbe.Video.FrameRate` will be removed.*)
+
+```diff
+{
+-    "FFProbe.Video.FrameRate": "0/0",
++    "FFProbe.Video.FrameRate.Calculated": "4232/176.509667"
 }
 ```
 
@@ -243,3 +255,8 @@ If `ffprobe` is able to fetch metadata from video container, `RightProperties` w
 >>- A `probe_score` of 100 is often used when `ffprobe` is very confident about the detected format or codec.
 >>
 > \- From ChatGPT
+
+## TODO
+
+- [ ] Support `.lnk` files. <https://learn.microsoft.com/en-us/answers/questions/187620/support-for-link-files-in-uwp>
+- [ ] Support [`MediaInfo`](https://github.com/MediaArea/MediaInfo)

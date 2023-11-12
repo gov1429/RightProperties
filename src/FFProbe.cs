@@ -201,6 +201,34 @@ static class FFProbe {
         }
     }
 
+    static public async Task CalculateFrameRate(string filePath, Dictionary<string, object> winProps) {
+        Logger.Info("Try to calculate average frame rage of video from `{0}`.", filePath);
+        // `-count_frames` is much slower than `-count_packets`.
+        string ffprobeArg = $"-select_streams v -count_packets -show_entries stream=time_base,duration,nb_read_packets -hide_banner -loglevel warning -print_format csv=print_section=0 \"{filePath}\"";
+        var probeCols = new string[3];
+        using Process process = ExecuteFFProbeCommand(ffprobeArg, (_, e) => {
+            if (e.Data == null) return;
+            probeCols = e.Data.Split(',');
+        });
+
+        await process.WaitForExitAsync(Const.CTS.Token).ConfigureAwait(false);
+
+        if (!Double.TryParse(probeCols[1], out var duration)) {
+            Logger.Warn("ffprobe failed to parse duration of video stream from `{0}`, got `{1}`.", filePath, probeCols[1]);
+            ffprobeArg = $"-select_streams v -show_entries packet=duration -hide_banner -loglevel warning -print_format default=nokey=1:noprint_wrappers=1 \"{filePath}\"";
+            int sumDuration = 0;
+            using Process durationProcess = ExecuteFFProbeCommand(ffprobeArg, (_, e) => {
+                if (e.Data == null) return;
+                if (Int32.TryParse(e.Data, out var duration)) sumDuration += duration;
+            });
+
+            string[] rational = probeCols[0].Split('/');
+            duration = sumDuration * Int32.Parse(rational[0]) / Int32.Parse(rational[1]);
+        }
+
+        winProps.Add($"FFProbe.Video.FrameRate.Calculated", $"{probeCols[2]}/{duration}");
+    }
+
     static public void SetBinaryPath(string path) {
         binaryPath = path;
     }
@@ -330,8 +358,14 @@ static class FFProbe {
 
         if (streamCounter != 2) ThrowWithVideoMeta("#stream of a video != 2.");
 
-        System.Runtime.CompilerServices.ConfiguredTaskAwaitable? calculationTask = null;
-        if (noBitrateStreams.Count > 0) calculationTask = CalculateStreamBitrate(file.Path, noBitrateStreams, winProps).ConfigureAwait(false);
+        var calculationTasks = new List<Task>();
+        if (noBitrateStreams.Count > 0) calculationTasks.Add(CalculateStreamBitrate(file.Path, noBitrateStreams, winProps));
+
+        // Rare case.
+        if (winProps.TryGetValue("FFProbe.Video.FrameRate", out var framerate) && framerate.Equals("0/0")) {
+            calculationTasks.Add(CalculateFrameRate(file.Path, winProps));
+            winProps.Remove("FFProbe.Video.FrameRate");
+        }
 
         sectionElm = doc.RootElement.GetProperty("format");
         // Verify overall. https://github.com/FFmpeg/FFmpeg/blob/b6066ceb8bd1e3ae1af733d22cb1b5c234c47a0b/libavformat/avformat.h#L1529
@@ -363,7 +397,7 @@ static class FFProbe {
                 }
         }
 
-        if (calculationTask.HasValue) await calculationTask.Value;
+        if (calculationTasks.Count > 0) await Task.WhenAll(calculationTasks).ConfigureAwait(false);
 
         return winProps;
 
