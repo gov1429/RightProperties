@@ -10,6 +10,5 @@
     <Nullable>enable</Nullable>
     <!-- https://learn.microsoft.com/en-us/dotnet/core/project-sdk/overview#default-includes-and-excludes -->
     <!-- https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#default-item-inclusion-properties -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);notes/**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>
