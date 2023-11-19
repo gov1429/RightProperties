@@ -23,7 +23,7 @@ static class Property {
                         IDictionary<string, object> prop = await file.Properties.RetrievePropertiesAsync(null).AsTask(Const.CTS.Token).ConfigureAwait(false);
                         if (probeMissingVideoProps) {
                             if (file.ContentType.StartsWith("video") || (int)prop["System.PerceivedType"] == 4) {
-                                (string entriesArg, List<int> queryIndexes) = FFProbe.PrepareFFProbeEntriesArgument(prop);
+                                (string entriesArg, HashSet<int> queryIndexes) = FFProbe.PrepareFFProbeEntriesArgument(prop);
                                 if (entriesArg.Length > 0) prop = await FFProbe.GetMetadataFromFFProbe(file, entriesArg, queryIndexes, prop).ConfigureAwait(false);
                             } else Logger.Info("Skip trying to retrieve props via ffprobe from non-video file `{0}`({1}).", file.Path, file.ContentType);
                         }
@@ -93,7 +93,7 @@ static class Property {
     static public async Task QueryWithFFProbeAndExit(string path) {
         StorageFile f = await StorageFile.GetFileFromPathAsync(path).AsTask(Const.CTS.Token).ConfigureAwait(false);
         IDictionary<string, object> p = await f.Properties.RetrievePropertiesAsync(null).AsTask(Const.CTS.Token).ConfigureAwait(false);
-        (string ea, List<int> qi) = FFProbe.PrepareFFProbeEntriesArgument(p);
+        (string ea, HashSet<int> qi) = FFProbe.PrepareFFProbeEntriesArgument(p);
 
         Const.WATCHER.Restart();
         if (ea.Length > 0) p = await FFProbe.GetMetadataFromFFProbe(f, ea, qi, p).ConfigureAwait(false);

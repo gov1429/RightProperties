@@ -257,18 +257,32 @@ static class FFProbe {
     /// By checking <see cref="String.Length">Length</see> or <see cref="List{T}.Count">Count</see> of items from returned tuple
     /// to know whether there is any missing property or not.
     /// </remarks>
-    static public (string entriesArg, List<int> queryIndexes) PrepareFFProbeEntriesArgument(IDictionary<string, object> winProps) {
+    static public (string entriesArg, HashSet<int> queryIndexes) PrepareFFProbeEntriesArgument(IDictionary<string, object> winProps) {
         var entries = new Dictionary<string, HashSet<string>> { { "stream", new HashSet<string>() }, { "format", new HashSet<string>() } };
-        var queryIndexes = new List<int>();
+        var queryIndexes = new HashSet<int>();
         string arg = "";
 
+        int? emptyBitrateIdx = null;
         for (int index = 0; index < metaEntries.Length; index++) {
             var meta = metaEntries[index];
             if (!winProps.ContainsKey(meta.winProp)) {
                 entries[meta.ffEntry.sectionName].Add(meta.ffEntry.sectionEntryName);
                 queryIndexes.Add(index);
+            } else if (emptyBitrateIdx == null && winProps[meta.winProp].Equals(0U) && meta.ffEntry.sectionEntryName == "bit_rate")
+                emptyBitrateIdx = index;
+        }
+
+        // When any bitrate of stream is 0(usually matroska), we should fetch all of them(others are possible wrong as well).
+        if (emptyBitrateIdx != null) {
+            Logger.Debug("Fetch all bitrates from file {0}.", winProps["System.ItemPathDisplay"]);
+            for (int index = 0; index < metaEntries.Length; index++) {
+                var meta = metaEntries[index];
+                if (meta.ffEntry.sectionEntryName != "bit_rate") continue;
+                queryIndexes.Add(index);
+                entries[meta.ffEntry.sectionName].Add(meta.ffEntry.sectionEntryName);
             }
         }
+
 
         // Found everything we want, skip it.
         if (queryIndexes.Count == 0) return (arg, queryIndexes);
@@ -313,7 +327,7 @@ static class FFProbe {
     /// <remarks>
     /// Usually called immediately after <see cref="PrepareFFProbeEntriesArgument"/>.
     /// </remarks>
-    static public async Task<Dictionary<string, object>> GetMetadataFromFFProbe(StorageFile file, string entriesArg, List<int> queryIndexes, IDictionary<string, object> inWinProps) {
+    static public async Task<Dictionary<string, object>> GetMetadataFromFFProbe(StorageFile file, string entriesArg, HashSet<int> queryIndexes, IDictionary<string, object> inWinProps) {
         // TODO: Unable to `Add` IDictionary https://github.com/microsoft/CsWinRT/blob/0e9147967239e902eb7898fed2d4839fce2c7ec5/src/WinRT.Runtime/Projections/IDictionary.net5.cs#L208 
         var winProps = new Dictionary<string, object>(inWinProps);
         using Process process = ExecuteFFProbeCommand($"-show_entries {entriesArg} -hide_banner -loglevel warning -print_format json=compact=1 \"{file.Path}\"");
@@ -341,19 +355,20 @@ static class FFProbe {
 
             // This usually runs at second stream.
             if (anotherCodecIndexes.Count > 0) anotherCodecIndexes.ForEach(metaIdx => CollectMetadata(stream, metaIdx, codecType));
-            else queryIndexes.ForEach(metaIdx => {
-                // Traversal all indexes first and collect current codec's metadata,
-                // then collect remaining indexes' meta in `anotherCodecIndexes` and `formatIndexes`.
-                var metaEntry = metaEntries[metaIdx];
-                if (metaEntry.ffEntry.sectionName != "stream") {
-                    formatIndexes.Add(metaIdx);
-                    return;
-                }
+            else if (formatIndexes.Count == 0)
+                foreach (int metaIdx in queryIndexes) {
+                    // Traversal all indexes first and collect current codec's metadata,
+                    // then collect remaining indexes' meta in `anotherCodecIndexes` and `formatIndexes`.
+                    var metaEntry = metaEntries[metaIdx];
+                    if (metaEntry.ffEntry.sectionName != "stream") {
+                        formatIndexes.Add(metaIdx);
+                        continue;
+                    }
 
-                // We handle video kind first(usually the first stream).
-                if ((codecType == "video") == (metaIdx < 6)) CollectMetadata(stream, metaIdx, codecType);
-                else anotherCodecIndexes.Add(metaIdx);
-            });
+                    // We handle video kind first(usually the first stream).
+                    if ((codecType == "video") == (metaIdx < 6)) CollectMetadata(stream, metaIdx, codecType);
+                    else anotherCodecIndexes.Add(metaIdx);
+                }
         }
 
         if (streamCounter != 2) ThrowWithVideoMeta("#stream of a video != 2.");
