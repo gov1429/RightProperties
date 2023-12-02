@@ -273,7 +273,7 @@ static class FFProbe {
         }
 
         // When any bitrate of stream is 0(usually matroska), we should fetch all of them(others are possible wrong as well).
-        if (emptyBitrateIdx != null) {
+        if (emptyBitrateIdx != null || (winProps.ContainsKey("System.Video.TotalBitrate") && (!winProps.ContainsKey("System.Video.EncodingBitrate") || !winProps.ContainsKey("System.Audio.EncodingBitrate")))) {
             Logger.Debug("Fetch all bitrates from file {0}.", winProps["System.ItemPathDisplay"]);
             for (int index = 0; index < metaEntries.Length; index++) {
                 var meta = metaEntries[index];
